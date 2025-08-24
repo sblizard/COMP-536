@@ -6,51 +6,51 @@ def load_ciphertexts() -> List[bytes]:
     If a block has multiple non-blank lines, we keep ONLY the last line (assumed ciphertext hex).
     Returns: list[bytes]
     """
-    cts_hex = []
-    block = []
-    with open("texts.txt", "r", encoding="utf-8") as f:
-        for raw in f:
-            line = raw.strip()
+    ciphertext_hex_strings = []
+    current_block = []
+    with open("texts.txt", "r", encoding="utf-8") as file:
+        for raw_line in file:
+            line = raw_line.strip()
             if not line:
-                if block:
-                    cts_hex.append(block[-1])
-                    block = []
+                if current_block:
+                    ciphertext_hex_strings.append(current_block[-1])
+                    current_block = []
                 continue
-            block.append(line)
-        if block:
-            cts_hex.append(block[-1])
+            current_block.append(line)
+        if current_block:
+            ciphertext_hex_strings.append(current_block[-1])
 
-    cts = []
-    for i, h in enumerate(cts_hex):
+    ciphertexts = []
+    for block_index, hex_string in enumerate(ciphertext_hex_strings):
         try:
-            cts.append(bytes.fromhex(h))
+            ciphertexts.append(bytes.fromhex(hex_string))
         except ValueError as e:
-            raise ValueError(f"Block {i} is not valid hex:\n{h}") from e
-    return cts
+            raise ValueError(f"Block {block_index} is not valid hex:\n{hex_string}") from e
+    return ciphertexts
 
-def bxor(a: bytes, b: bytes) -> bytes:
+def bitwise_xor_with_padding(first_bytes: bytes, second_bytes: bytes) -> bytes:
     """XOR up to the length of the longer input, padding the shorter with zeros."""
-    n = max(len(a), len(b))
-    out = bytearray(n)
-    for i in range(n):
-        x = a[i] if i < len(a) else 0
-        y = b[i] if i < len(b) else 0
-        out[i] = x ^ y
-    return bytes(out)
+    max_length = max(len(first_bytes), len(second_bytes))
+    result = bytearray(max_length)
+    for index in range(max_length):
+        first_byte = first_bytes[index] if index < len(first_bytes) else 0
+        second_byte = second_bytes[index] if index < len(second_bytes) else 0
+        result[index] = first_byte ^ second_byte
+    return bytes(result)
 
 def main():
-    cts = load_ciphertexts()
+    ciphertexts = load_ciphertexts()
 
     # sanity check
-    for i, ct in enumerate(cts):
-        if any(bxor(ct, ct)):
-            raise RuntimeError(f"Sanity check failed at index {i}")
+    for ciphertext_index, ciphertext in enumerate(ciphertexts):
+        if any(bitwise_xor_with_padding(ciphertext, ciphertext)):
+            raise RuntimeError(f"Sanity check failed at index {ciphertext_index}")
 
-    for i, cti in enumerate(cts):
-        for j, ctj in enumerate(cts):
-            x = bxor(cti, ctj)
-            print(f"Text {i} XOR Text {j} =")
-            print(x.hex(), end="\n\n")
+    for first_index, first_ciphertext in enumerate(ciphertexts):
+        for second_index, second_ciphertext in enumerate(ciphertexts):
+            xor_result = bitwise_xor_with_padding(first_ciphertext, second_ciphertext)
+            print(f"Text {first_index} XOR Text {second_index} =")
+            print(xor_result.hex(), end="\n\n")
 
 if __name__ == "__main__":
     main()
