@@ -1,8 +1,8 @@
 # crib_drag.py
 from typing import List, Optional
 
-TARGET_IDX = 8         # second-to-last ciphertext in your data (0-based)
-SPACE_THRESHOLD = 5    # how many letter-hits needed at a position to assume target has a space
+TARGET_IDX = 8
+SPACE_THRESHOLD = 5
 PRINTABLE_MIN = 0x20
 PRINTABLE_MAX = 0x7E
 
@@ -66,7 +66,7 @@ def infer_spaces_and_derive_key_prefix(ciphertexts: List[bytes], target_index: i
     """
     target_length = len(ciphertexts[target_index])
     letter_hit_counts = [0] * target_length
-    # collect pairwise XORs for display/debug if you want
+
     xor_results = []
 
     for other_index, other_ciphertext in enumerate(ciphertexts):
@@ -153,6 +153,21 @@ def recover_target_ciphertext_plaintext(ciphertexts, key_prefix, known_key_posit
     print(f"\nPT_guess for CT {target_ciphertext_index} (first {decryption_length} bytes): {''.join(decrypted_characters)}")
 
 
+def recover_key(ciphertext: bytes, plaintext: str) -> bytes:
+    """Recover the key used for encryption by XORing the ciphertext with the plaintext."""
+    plaintext_bytes = plaintext.encode('utf-8')
+    return bitwise_xor_minimum_length(ciphertext, plaintext_bytes)
+
+def decrypt(ciphertext: bytes, key: bytes) -> bytes:
+    """Decrypt the ciphertext using the key by XORing them."""
+    # Only decrypt up to the length of the shorter input
+    min_length = min(len(ciphertext), len(key))
+    result = bytearray()
+    for i in range(min_length):
+        decrypted_byte = ciphertext[i] ^ key[i]
+        result.append(decrypted_byte)
+    return bytes(result)
+
 def main():
     ciphertexts = load_ciphertexts()
     show_ciphertext_lengths(ciphertexts)
@@ -189,6 +204,27 @@ def main():
     # Reprint reveals and show the short target plaintext (CT 8)
     print_current_decryption_results(ciphertexts, key_prefix, known_key_positions)
     recover_target_ciphertext_plaintext(ciphertexts, key_prefix, known_key_positions, target_ciphertext_index=TARGET_IDX)
+
+
+    key: bytes = recover_key(ciphertexts[6], "The thousand injuries of Fortunato I had borne as I best could; but when he ventured upon insult I vowed revenge. You, who so well know the nature of my soul, will not suppose, however, that I gave utterance to a threat. At length I would be avenged; this was a point definitively settled—but the very definitiveness with which it was resolved precluded the idea of risk.")
+    print(f"Recovered key for CT 8: {key.hex()}")
+
+    # Decrypt CT 8 using the recovered key
+    decrypted_ct8 = decrypt(ciphertexts[8], key)
+    print(f"Decrypted CT 8 (length: {len(decrypted_ct8)}):")
+    
+    # Try to decode as UTF-8, replacing errors
+    try:
+        decoded_text = decrypted_ct8.decode('utf-8', errors='replace')
+        print(f"As text: {repr(decoded_text)}")
+        print(f"Readable: {decoded_text}")
+    except Exception as e:
+        print(f"Decoding error: {e}")
+        # Show as hex if decoding fails
+        print(f"As hex: {decrypted_ct8.hex()}")
+        # Try to show printable characters only
+        printable_chars = ''.join(chr(b) if 32 <= b <= 126 else '?' for b in decrypted_ct8)
+        print(f"Printable chars: {printable_chars}")
 
 if __name__ == "__main__":
     main()
