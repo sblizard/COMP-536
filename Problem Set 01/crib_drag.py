@@ -201,29 +201,49 @@ def main():
     # apply_known_plaintext_crib(ciphertexts, key_prefix, known_key_positions, ciphertext_index=2, known_plaintext_crib="It was ", position_offset=0)
     # apply_known_plaintext_crib(ciphertexts, key_prefix, known_key_positions, ciphertext_index=3, known_plaintext_crib="Once ", position_offset=0)
 
-    # Reprint reveals and show the short target plaintext (CT 8)
+    # Let's extend our knowledge step by step based on what we can clearly see
+    print("\n=== Applying step-by-step cribs for CT 6 ===")
+    
+    # First, apply what we can clearly see from CT 6
+    ct6_partial = "The thousand injuries of Fortunato I had borne as I best could; but when he ventured upon insult I vowed revenge. You, who so well know the nature of my soul, will not suppose, however, that I gave utterance to a threat. At length I would be avenged; this was a point definitively settled—but the very definitiveness with which it was resolved precluded the idea of risk."
+    apply_known_plaintext_crib(ciphertexts, key_prefix, known_key_positions, 
+                              ciphertext_index=6, 
+                              known_plaintext_crib=ct6_partial, 
+                              position_offset=0)
+    
+    print(f"Applied {len(ct6_partial)} characters from CT 6")
+    print(f"Now we have key knowledge for {sum(known_key_positions)} positions")
+    
+    # Reprint reveals and show the target plaintext (CT 8) using the extended key
     print_current_decryption_results(ciphertexts, key_prefix, known_key_positions)
     recover_target_ciphertext_plaintext(ciphertexts, key_prefix, known_key_positions, target_ciphertext_index=TARGET_IDX)
-
-
-    key: bytes = recover_key(ciphertexts[6], "The thousand injuries of Fortunato I had borne as I best could; but when he ventured upon insult I vowed revenge. You, who so well know the nature of my soul, will not suppose, however, that I gave utterance to a threat. At length I would be avenged; this was a point definitively settled—but the very definitiveness with which it was resolved precluded the idea of risk.")
-    print(f"Recovered key for CT 8: {key.hex()}")
-
-    # Decrypt CT 8 using the recovered key
-    decrypted_ct8 = decrypt(ciphertexts[8], key)
-    print(f"Decrypted CT 8 (length: {len(decrypted_ct8)}):")
     
-    # Try to decode as UTF-8, replacing errors
+    # Now decrypt CT 8 using the key we've built up from the cribs
+    print(f"\n=== Decrypting CT {TARGET_IDX} with recovered key ===")
+    decryption_length = min(len(key_prefix), len(ciphertexts[TARGET_IDX]))
+    decrypted_bytes = bytearray()
+    
+    for position in range(decryption_length):
+        if known_key_positions[position]:
+            decrypted_byte = ciphertexts[TARGET_IDX][position] ^ key_prefix[position]
+            decrypted_bytes.append(decrypted_byte)
+        else:
+            # We don't know this key position, so we can't decrypt this byte
+            break
+    
+    print(f"Successfully decrypted {len(decrypted_bytes)} bytes of CT {TARGET_IDX}")
+    
+    # Try to decode as UTF-8
     try:
-        decoded_text = decrypted_ct8.decode('utf-8', errors='replace')
-        print(f"As text: {repr(decoded_text)}")
+        decoded_text = bytes(decrypted_bytes).decode('utf-8', errors='replace')
+        print(f"Decrypted text: {repr(decoded_text)}")
         print(f"Readable: {decoded_text}")
     except Exception as e:
         print(f"Decoding error: {e}")
         # Show as hex if decoding fails
-        print(f"As hex: {decrypted_ct8.hex()}")
+        print(f"As hex: {bytes(decrypted_bytes).hex()}")
         # Try to show printable characters only
-        printable_chars = ''.join(chr(b) if 32 <= b <= 126 else '?' for b in decrypted_ct8)
+        printable_chars = ''.join(chr(b) if 32 <= b <= 126 else '?' for b in decrypted_bytes)
         print(f"Printable chars: {printable_chars}")
 
 if __name__ == "__main__":
