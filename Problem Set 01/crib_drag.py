@@ -240,9 +240,7 @@ def main():
         print(f"Readable: {decoded_text}")
     except Exception as e:
         print(f"Decoding error: {e}")
-        # Show as hex if decoding fails
         print(f"As hex: {bytes(decrypted_bytes).hex()}")
-        # Try to show printable characters only
         printable_chars = ''.join(chr(b) if 32 <= b <= 126 else '?' for b in decrypted_bytes)
         print(f"Printable chars: {printable_chars}")
 
